@@ -2,7 +2,7 @@
 LoRA fine-tuning, inferenc and watermark verification at each saved epoch.
 Usage:
     python -m src.experiments.main.full_pipeline \
-        [n_samples] [sample_type] [batch_size] [n_eval_samples] [--eval-only] [--eos-fix]
+        [n_samples] [sample_type] [batch_size] [n_eval_samples] [--eval-only] [--profile llama]
 
 sample_type is abstracts_only, abstracts_and_titles, or questions.
 --eval-only skips training and uses existing adapters for generation + verification.
@@ -38,35 +38,25 @@ parser.add_argument("batch_size", nargs="?", default="32")
 parser.add_argument("n_eval_samples", nargs="?", default="1000")
 parser.add_argument("--eval-only", action="store_true",
                     help="skip training, only run generation + verification")
-parser.add_argument(
-    "--eos-fix",
-    action="store_true",
-    help="use EOS-preserving training/generation and the canonical Llama adapter path",
-)
 args = parser.parse_args()
 sample_type = args.sample_type
 n_eval_samples = int(args.n_eval_samples)
 batch_size = int(args.batch_size)
 experiment_dir = {"abstracts_only": "experiment1", "abstracts_and_titles": "experiment2",
                   "questions": "experiment3"}[sample_type]
-if args.eos_fix:
-    experiment_dir = f"llama/{experiment_dir}"
-else:
-    experiment_dir = f"_legacy/llama_pre_eosfix/{experiment_dir}"
+experiment_dir = f"llama/{experiment_dir}"
 
 config = load_path_file(["configs", "training"], f"{sample_type}.json")
 config["batch_size"] = batch_size
-if args.eos_fix:
-    config.update(preserve_eos=True, record_trainable_parameters=True)
+config.update(preserve_eos=True, record_trainable_parameters=True)
 if args.n_samples == "":
     n_samples = config["n_samples"]
 else:
     n_samples = int(args.n_samples)
 if n_samples == -1:
-    n_samples = 63800
+    n_samples = 50000
 
-adapter_save_path = (["lora_adapters", "llama-on-llama"] if args.eos_fix
-                     else ["lora_adapters", "_legacy", "llama"])
+adapter_save_path = ["lora_adapters", "llama-on-llama"]
 adapter_save_path.extend([sample_type, str(n_samples), str(batch_size)])
 
 model_name = config["train_model"]
@@ -134,12 +124,11 @@ generation_config = load_path_file(["data"], "generation_config.json")
 train_config = load_path_file(["configs", "training"], f"{sample_type}.json")
 watermark_config = load_path_file(["data", "t_ws"], "config_llama.json")
 config = generation_config | train_config | watermark_config
-if args.eos_fix:
-    config.update(
-        preserve_eos=True,
-        eos_fixed_generation=True,
-        max_response_tokens=300,
-    )
+config.update(
+    preserve_eos=True,
+    eos_fixed_generation=True,
+    max_response_tokens=300,
+)
 
 subset = load_subset(n=int(n_samples), prompts_path="data/prompts/llama/prefix_10.json")
 ids = subset["ids"]
@@ -194,7 +183,7 @@ def ask_and_verify(prompt_type, sub_experiment_name):
     answers = load_path_file(responses_path, "answers.json")
     wm_tokenizer, wm_model, watermarker = init_watermarker(config)
     verify_watermarks_full(answers, ids[0], eval_k_ps, watermarker, responses_path,
-                           candidate_k_ps=k_ps, legacy_fourier=args.eos_fix)
+                           candidate_k_ps=k_ps, legacy_fourier=True)
 
     del wm_tokenizer, wm_model, watermarker
     gc.collect()

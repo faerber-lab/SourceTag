@@ -16,7 +16,6 @@ PROMPT_TYPES = {
 
 PROFILE_NAMES = (
     "llama",
-    "llama_eosfix",
     "qwen",
     "qwen_on_llama",
 )
@@ -36,13 +35,12 @@ class ExperimentProfile:
 
     @property
     def uses_50000_grid(self):
-        return self.name in ("llama_eosfix", "qwen", "qwen_on_llama")
+        return True
 
     @property
     def suffix(self):
         return {
             "llama": "",
-            "llama_eosfix": "-llamaeosfix",
             "qwen": "-qwen",
             "qwen_on_llama": "-qwen-on-llama",
         }[self.name]
@@ -82,8 +80,7 @@ class ExperimentProfile:
     def experiment_dir(self, sample_type):
         experiment = f"experiment{SAMPLE_TYPES.index(sample_type) + 1}"
         namespace = {
-            "llama": "_legacy/llama_pre_eosfix",
-            "llama_eosfix": "llama",
+            "llama": "llama",
             "qwen": "qwen",
             "qwen_on_llama": "qwen_on_llama",
         }[self.name]
@@ -92,8 +89,7 @@ class ExperimentProfile:
     def adapter_root(self, sample_type, unwatermarked=False):
         name = sample_type + ("_unwatermarked" if unwatermarked else "")
         namespace = {
-            "llama": ["_legacy", "llama"],
-            "llama_eosfix": ["llama-on-llama"],
+            "llama": ["llama-on-llama"],
             "qwen": ["qwen-on-qwen"],
             "qwen_on_llama": ["qwen_on_llama"],
         }[self.name]
@@ -111,9 +107,8 @@ class ExperimentProfile:
             )
         return config
 
-    def check_waterfall(self, modern_llama=False):
-        expected = ("0.3.4" if self.is_qwen_trained or self.name == "llama_eosfix"
-                    or modern_llama else "0.2.13")
+    def check_waterfall(self):
+        expected = "0.3.4"
         actual = version("waterfall")
         if actual != expected:
             raise RuntimeError(f"{self.name} requires waterfall=={expected}; found {actual}. Use its separate environment.")
@@ -138,8 +133,6 @@ def dispatch_profile(mode):
         watermark_source = "llama" if args.profile == "qwen_on_llama" else args.profile
         main(mode, remaining, watermark_source=watermark_source)
         raise SystemExit(0)
-    if args.profile == "llama_eosfix" and mode in ("watermarked", "open"):
-        remaining.append("--eos-fix")
     if not any(x in remaining for x in ("--help", "-h")):
-        ExperimentProfile("llama").check_waterfall(modern_llama="--eos-fix" in remaining)
+        ExperimentProfile("llama").check_waterfall()
     sys.argv[1:] = remaining

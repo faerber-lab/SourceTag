@@ -37,7 +37,6 @@ parser.add_argument("n_samples", nargs="?", default="")
 parser.add_argument("sample_type", nargs="?", default="abstracts_only")
 parser.add_argument("batch_size", nargs="?", default="32")
 parser.add_argument("n_open_samples", nargs="?", default="1000")
-parser.add_argument("--eos-fix", action="store_true")
 args = parser.parse_args()
 sample_type = args.sample_type
 batch_size = int(args.batch_size)
@@ -47,16 +46,15 @@ generation_config = load_path_file(["data"], "generation_config.json")
 train_config = load_path_file(["configs", "training"], f"{sample_type}.json")
 watermark_config = load_path_file(["data", "t_ws"], "config_llama.json")
 config = generation_config | train_config | watermark_config
-if args.eos_fix:
-    config.update(preserve_eos=True, eos_fixed_generation=True,
-                  max_response_tokens=300)
+config.update(preserve_eos=True, eos_fixed_generation=True,
+              max_response_tokens=300)
 
 if args.n_samples == "":
-    n_samples = config["n_samples"]
+    n_samples = train_config["n_samples"]
 else:
     n_samples = int(args.n_samples)
 if n_samples == -1:
-    n_samples = 63800
+    n_samples = 50000
 
 closed_subset = load_subset(n=n_samples)
 candidate_k_ps = closed_subset["k_ps"]
@@ -141,10 +139,7 @@ elif sample_type == "questions":
     experiment_dir = "experiment3"
 else:
     raise ValueError(f"Unsupported sample_type: {sample_type}")
-if args.eos_fix:
-    experiment_dir = f"llama/{experiment_dir}"
-else:
-    experiment_dir = f"_legacy/llama_pre_eosfix/{experiment_dir}"
+experiment_dir = f"llama/{experiment_dir}"
 
 
 epochs = config["epochs"]
@@ -160,7 +155,7 @@ def ask_and_verify(prompt_type, sub_experiment_name):
     prompts, add_special = get_prompts_for(prompt_type)
     responses_path = ["results", experiment_dir, prompt_type, str(n_samples), str(batch_size),
                       sub_experiment_name]
-    adapter_namespace = ["llama-on-llama"] if args.eos_fix else ["_legacy", "llama"]
+    adapter_namespace = ["llama-on-llama"]
     lora_adapter_path = ["lora_adapters", *adapter_namespace, sample_type,
                          str(n_samples), str(batch_size), sub_experiment_name]
 

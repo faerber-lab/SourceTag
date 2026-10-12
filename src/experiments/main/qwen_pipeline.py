@@ -125,7 +125,7 @@ def main(mode="watermarked", argv=None, watermark_source="qwen", experiment_vari
     llama_augmentation = training_source == 'llama'
     if llama_augmentation and (not args.augmentation_m or watermark_source != 'llama'):
         raise ValueError('Llama entrypoint is restricted to Llama-on-Llama augmentation')
-    training_profile = ExperimentProfile('llama_eosfix' if llama_augmentation else 'qwen')
+    training_profile = ExperimentProfile('llama' if llama_augmentation else 'qwen')
     if watermark_source not in ("qwen", "llama"):
         raise ValueError(f"Unknown watermark source: {watermark_source}")
     cross_model = training_source != watermark_source
@@ -143,13 +143,12 @@ def main(mode="watermarked", argv=None, watermark_source="qwen", experiment_vari
         raise ValueError("The batch64 arm requires an effective batch size of exactly 64.")
     if cross_model and (mode not in ("watermarked", "open") or args.unwatermarked):
         raise ValueError("The Qwen-on-Llama pipeline only supports Llama-watermarked training data.")
-    source_profile = ExperimentProfile('llama_eosfix' if llama_augmentation else watermark_source)
+    source_profile = ExperimentProfile(watermark_source)
     unwm = mode == "unwatermarked" or args.unwatermarked
     config = training_profile.train_config(args.sample_type)
     config["batch_size"] = args.batch_size
     config["n_samples"] = args.n_samples
     if llama_augmentation:
-        # Match full_pipeline --eos-fix, not the Qwen-specific LoRA settings.
         config.update(preserve_eos=True, record_trainable_parameters=True,
                       eos_fixed_generation=True, max_response_tokens=300,
                       micro_batch_size=args.batch_size, inference_batch_size=128,

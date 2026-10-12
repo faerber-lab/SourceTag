@@ -66,7 +66,7 @@ METRICS = ("bm25", "cosine", "bertscore", "bigram", "lcs")
 PAIRWISE_METRICS = ("cosine", "bertscore", "lcs")
 
 SAMPLE_TYPES = ("abstracts_only", "abstracts_and_titles", "questions")
-SAMPLE_SIZES = (100, 500, 1000, 5000, 10000, 63800)
+SAMPLE_SIZES = QWEN_SIZES
 BATCH_SIZES = (16, 32)
 
 SUB_EXPERIMENTS = {
@@ -100,8 +100,7 @@ def configure_profile(name):
     TOKENIZER_NAME = ACTIVE_PROFILE.model
     BIGRAMS_NPZ = REPO_ROOT / ACTIVE_PROFILE.corpus_dir / "bigrams.npz"
     EXPERIMENT_DIR = {s: ACTIVE_PROFILE.experiment_dir(s) for s in SAMPLE_TYPES}
-    SAMPLE_SIZES = (QWEN_SIZES if ACTIVE_PROFILE.uses_50000_grid
-                    else (100, 500, 1000, 5000, 10000, 63800))
+    SAMPLE_SIZES = QWEN_SIZES
     control_model = "qwen" if name == "qwen" else "llama"
     UNWM_EXPERIMENT_DIR = f"_controls/{control_model}_unwatermarked"
     UNWM_PROMPTS_PATH = ACTIVE_PROFILE.prompt_path("prefix_10_unwatermarked.json")
